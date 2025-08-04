@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+
+<head>
+
+</head>
+
+<body>
+    <div style="font-size: 20px; text-align: center;">点光源漫反射-片元着色+环境光的漫反射</div>
+    <canvas id="canvasDom" width="600" height="600"></canvas>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/cuon-matrix.js"></script>
+    <!-- 矩阵变换库 -->
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script>
+        //定点着色器   说明了像素-定点的什么样的
+        let vshader_source =
+            'attribute vec4 a_Position;' +
+            'attribute vec4 a_Color;' +
+            'uniform mat4 u_ViewMatirx;' + //视图矩阵
+            'uniform mat4 u_ModelMatrix;' + //模型矩阵
+            'uniform mat4 u_projectMatrix;' + //投影矩阵
+            'uniform mat4 u_NormalMatrix;' + //变换矩阵
+            'varying vec4 v_Color;' +
+            'attribute vec4 a_normal;' + //法向量
+            'varying vec3 v_normal;' +//  传递给片元着色器的光照方向
+            'varying vec3 v_position;' + //传递给片元着色器的 位置
+            'void main(){' +
+                'vec4 color=vec4(1.0,1.0,1.0,1.0);' +
+                'gl_Position = u_projectMatrix* u_ViewMatirx*u_ModelMatrix*a_Position;' + //模型视图诱因矩阵
+                'v_normal = normalize(vec3(u_NormalMatrix*a_normal));' +  //法向量归一化   传给片元着色器
+                'v_position = vec3(u_ModelMatrix*a_Position);' +
+                'gl_PointSize=10.0;' +
+                 'v_Color=color;' + //吧顶点颜色给  传递给片孙
+            '}';
+        //positong  表示是呢嘛位置
+        //片元着色器   颜色是什么样
+        let fshader_source =
+            'precision mediump float;' +
+            'varying vec4 v_Color;' +
+            'varying vec3 v_normal;' +
+            'varying vec3 v_position;' +
+            'uniform vec3 u_AmbientLight;' +//环境光颜色
+            'uniform vec3 u_LightColor;' + //光线颜色
+            'uniform vec3 u_LightPosition;' + //点光源 位置
+            'void main(){' +
+            'vec3 normal= normalize(v_normal);'+
+            'vec3 lineDirect = normalize(u_LightPosition-v_position);' + //通过矢量减法  两个点 相减去 获取光线方向  点光源指向顶点
+            'float nDotl = max(dot(lineDirect,normal),0.0);' +//计算法向量与光线点积  如果是大角度的话  会得到一个负值  给0
+            'vec3 diffuse=u_LightColor*vec3(v_Color)*nDotl;' + //计算漫反射光颜色 平行光
+            'vec3 ambient=u_AmbientLight* vec3(v_Color);' +// 环境光漫反射颜色//
+            'gl_FragColor=vec4(diffuse+ambient,1.0);' +
+            '}';
+        //片元着色器个根据每个片元（像素的位置来设置颜色） gl_FragCoord的webgl内置函数（获取片在canvas中的坐标）颜色平滑
+
+        let vermat = new Matrix4()
+
+        window.onload = function () {
+            let canvasDom = document.getElementById("canvasDom");
+            let gl = getWebGLContext(canvasDom);//获得绘图上下文
+            if (!gl) {
+                console.log("不能使用webGl")
+                return;
+            }
+            if (!initShaders(gl, vshader_source, fshader_source)) {
+                console.log("不能初始化着色器");
+                return;
+            }
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position') ///用变量 a_Positon 与顶点着色器  绑定
+            let u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor') //绑定 片元着色
+            let a_Color = gl.getAttribLocation(gl.program, "a_Color") //颜色数据
+            if (!a_Position < 0) {
+                console.log("没有能够获取着色器位置a_Positon")
+                return;
+            }
+            const u_ViewMatirx = gl.getUniformLocation(gl.program, 'u_ViewMatirx')  //视图
+            const u_ProjectMatrix = gl.getUniformLocation(gl.program, 'u_projectMatrix')  //投影
+            const u_ModelMatrix = gl.getUniformLocation(gl.program, 'u_ModelMatrix')   //模型
+            const u_mvpMatrix = gl.getUniformLocation(gl.program, 'u_mvpMatrix')
+            const u_LightColor = gl.getUniformLocation(gl.program, 'u_LightColor') //光线颜色
+            const u_LightDirection = gl.getUniformLocation(gl.program, 'u_LightDirection') //光线方向
+            const a_normal = gl.getAttribLocation(gl.program, 'a_normal')
+            const u_AmbientLight = gl.getUniformLocation(gl.program, 'u_AmbientLight')  //环境光颜色
+            const u_NormalMatrix = gl.getUniformLocation(gl.program, 'u_NormalMatrix')
+            const u_LightPosition = gl.getUniformLocation(gl.program, 'u_LightPosition') //光源位置
+            //原本最初的视图
+            const eyes = {
+                x: 3, y: 3, z: 7
+            }
+            const viewMartix = new Matrix4()// 视图矩阵
+            viewMartix.setLookAt(eyes.x, eyes.y, eyes.z, 0, 0, 0, 0, 1, 0)  //设置设界矩阵变换   //
+
+            const projectMaatrix = new Matrix4()
+            projectMaatrix.setPerspective(30, 1, 1, 100) //垂直视角，宽高比。近位置  远位置
+
+            const modelMatrix = new Matrix4()
+            modelMatrix.setRotate(1, 1, 1, 1)
+
+            const mvpMatrix = new Matrix4()
+            mvpMatrix.set(projectMaatrix).multiply(viewMartix).multiply(modelMatrix)
+
+
+
+            // mvpMatrix.lookAt(eyes.x, eyes.y, eyes.z, 0, 0, -10, 0, 1, 0)  //直接修改当前视角
+            const initverterxBuffer = () => {
+                var SPHERE_DIV = 13;
+
+                var i, ai, si, ci;
+                var j, aj, sj, cj;
+                var p1, p2;
+
+                var positions = [];
+                var indices = [];
+
+                // Generate coordinates
+                for (j = 0; j <= SPHERE_DIV; j++) {
+                    aj = j * Math.PI / SPHERE_DIV;
+                    sj = Math.sin(aj);
+                    cj = Math.cos(aj);
+                    for (i = 0; i <= SPHERE_DIV; i++) {
+                        ai = i * 2 * Math.PI / SPHERE_DIV;
+                        si = Math.sin(ai);
+                        ci = Math.cos(ai);
+
+                        positions.push(si * sj);  // X
+                        positions.push(cj);       // Y
+                        positions.push(ci * sj);  // Z
+                    }
+                }
+
+                // Generate indices
+                for (j = 0; j < SPHERE_DIV; j++) {
+                    for (i = 0; i < SPHERE_DIV; i++) {
+                        p1 = j * (SPHERE_DIV + 1) + i;
+                        p2 = p1 + (SPHERE_DIV + 1);
+
+                        indices.push(p1);
+                        indices.push(p2);
+                        indices.push(p1 + 1);
+                        indices.push(p1 + 1);
+                        indices.push(p2);
+                        indices.push(p2 + 1);
+                    }
+                }
+
+                const floatArrayPoitons= new Float32Array(positions)
+                const  floatArrayIndesc= new Uint8Array(indices)
+
+               //element  缓冲写法   固定写法 与 buffer不一致的地方   索引数局的缓冲区对象
+                const indexBuffer = new gl.createBuffer() //索引缓冲
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, floatArrayIndesc, gl.STATIC_DRAW)
+
+                //绑定缓冲区并写入 固定写法  顶点缓冲区数据
+                const vertesizeBuffer = new gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertesizeBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, floatArrayPoitons, gl.STATIC_DRAW)
+                gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);//间隔是0 偏移也是0
+                gl.enableVertexAttribArray(a_Position);//开启分配开关
+
+                //法线缓冲区数据
+                const normalBuffer = new gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, floatArrayPoitons, gl.STATIC_DRAW)  //法线的缓冲
+                gl.vertexAttribPointer(a_normal, 3, gl.FLOAT, false, 0, 0)//  间隔是0 偏移也是0
+                gl.enableVertexAttribArray(a_normal) //开启分配开关
+
+
+
+                
+                gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements)
+                gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
+                gl.uniformMatrix4fv(u_ProjectMatrix, false, projectMaatrix.elements)
+                gl.uniformMatrix4fv(u_ViewMatirx, false, viewMartix.elements)
+
+    
+                gl.uniform3f(u_LightColor, 1.0, 1.0, 0.0)  //光线为白光  
+                gl.uniform3f(u_LightPosition, 0.0, 3.0, 4.0)   //点光源位置
+                gl.uniform3f(u_AmbientLight, 0.2, 0.6, 0.2)  //环境光颜色
+                vermat.setInverseOf(modelMatrix)  //逆矩阵
+                vermat.transpose()  //矩阵转置
+                gl.uniformMatrix4fv(u_NormalMatrix, false, vermat.elements)  //运动矩阵
+
+                return indices.length
+            }
+            const n = initverterxBuffer();
+            gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+            gl.enable(gl.DEPTH_TEST)  //深度检测  让其不会遮盖
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+            gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0)
+
+
+
+
+            window.addEventListener("keydown", event => {   ///这里如果物体位置发生变化了  法线理论也是变化的才行，所以这里不起作用
+                let keyCode = event.keyCode
+
+                if (keyCode === 37) {
+                    //左键
+                    eyes.x -= 0.05
+                    // modelMatrix.rotate(10, 0, 1, 0)
+                } else if (keyCode == 39) {
+                    // modelMatrix.rotate(-10, 0, 1, 0)   //这里改变模型的的旋转
+                    //右键
+                    eyes.x += 0.05
+                }
+                viewMartix.setLookAt(eyes.x, eyes.y, eyes.z, 0, 0, 0, 0, 1, 0)  //设置设界矩阵变换
+
+                gl.uniformMatrix4fv(u_ModelMatrix, false, modelMatrix.elements)
+                gl.uniformMatrix4fv(u_ProjectMatrix, false, projectMaatrix.elements)
+                gl.uniformMatrix4fv(u_ViewMatirx, false, viewMartix.elements)   //在着色器里面计算
+
+
+                vermat.setInverseOf(modelMatrix) //逆矩阵
+                vermat.transpose()  //矩阵转置
+                gl.uniformMatrix4fv(u_NormalMatrix, false, vermat.elements)
+
+
+                gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements)
+                gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+                gl.enable(gl.DEPTH_TEST)  //深度检测  让其不会遮盖
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+                gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0)
+            })
+        }
+
+    </script>
+</body>
+
+</html>

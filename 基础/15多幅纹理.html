@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<head>
+
+</head>
+
+<body>
+    <div style="font-size: 20px; text-align: center;">多福纹理，多个纹理贴到同一图形上</div>
+    <canvas id="canvasDom" width="400" height="400"></canvas>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/cuon-matrix.js"></script>
+    <!-- 矩阵变换库 -->
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script>
+        //定点着色器   说明了像素-定点的什么样的
+        let vshader_source =
+            'attribute vec4 a_Position;' +
+            'attribute vec2 a_TextCoord;' +  //纹理坐标是二维的
+            'varying vec2 v_TextCoord;' +
+            'void main(){' +
+            'gl_Position =a_Position;' +
+            'v_TextCoord=a_TextCoord;' +  //传给片元着色器
+            '}';
+        //片元着色器 一个个像素片元
+        let fshader_source =
+            '#ifdef GL_ES\n' +
+            'precision mediump float;\n' +
+            '#endif\n' +
+            'uniform sampler2D u_Sample1;' + //aspmler2D 是一个取样器重图片中获取颜色
+            'uniform sampler2D u_Sample2;' +
+            'varying vec2 v_TextCoord;' +
+            'void main(){' +
+            'gl_FragColor=texture2D(u_Sample1,v_TextCoord)*texture2D(u_Sample2,v_TextCoord);' +//颜色矩阵颜色乘积
+            '}';
+
+        window.onload = function () {
+            let canvasDom = document.getElementById("canvasDom");
+            let gl = getWebGLContext(canvasDom);//获得绘图上下文
+            if (!gl) {
+                console.log("不能使用webGl")
+                return;
+            }
+            if (!initShaders(gl, vshader_source, fshader_source)) {
+                console.log("不能初始化着色器");
+                return;
+            }
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position') ///用变量 a_Positon 与顶点着色器  绑定
+            let a_TextCoord = gl.getAttribLocation(gl.program, 'a_TextCoord') //纹理坐标数据
+            if (!a_Position < 0) {
+                console.log("没有能够获取着色器位置a_Positon")
+                return;
+            }
+
+            /**
+             * 初始化顶点数据
+            */
+            const initverterxBuffer = () => {
+                const verticesSizes = new Float32Array([
+                    -0.5, 0.5, 0.0, 1.0,
+                    -0.5, -0.5, 0.0, 0.0,
+                    0.5, 0.5, 1.0, 1.0,
+                    0.5, -0.5, 1.0, 0.0,
+                ]);  //表示是一个正方形  和一个纹理坐标
+                var n = 4;///
+                const vertesizeBuffer = new gl.createBuffer();
+
+                //绑定缓冲区并写入   固定写法
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertesizeBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, verticesSizes, gl.STATIC_DRAW)
+                const fSize = verticesSizes.BYTES_PER_ELEMENT; //字节数
+                //顶点数据
+                gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, fSize * 4, 0);
+                gl.enableVertexAttribArray(a_Position);//开启分配开关
+                //设置纹理坐标
+                gl.vertexAttribPointer(a_TextCoord, 2, gl.FLOAT, false, fSize * 4, fSize * 2)
+                gl.enableVertexAttribArray(a_TextCoord) //开启分配开关
+                return n
+            }
+            /**
+             * 初始化纹理
+             * */
+            const inittextTure = (gl, n) => {
+                let texture = gl.createTexture();//创建纹理对象
+                let u_Sample1 = gl.getUniformLocation(gl.program, 'u_Sample1')  //获取位置
+
+                let image = new Image()
+                image.onload = () => {
+                    loadtexture(gl, n, texture, u_Sample1, image,0)
+                }
+                image.src = '../assets/sky.jpg';
+                let texture1 = gl.createTexture();
+                let u_Sample2 = gl.getUniformLocation(gl.program, 'u_Sample2')  //获取位置
+                let image1 = new Image()
+                image1.onload = () => {
+                    loadtexture(gl, n, texture1, u_Sample2, image1,1)
+                }
+                image1.src = '../assets/circle.gif';
+                return true
+            }
+            /**
+             * 加载载纹理对象
+            */
+            let g_textUnit0 = false;
+            let g_textUnit1 = false;
+            const loadtexture = (gl, u, texture, u_Smaple, image,textUnit) => {
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);//将纹理对象Y轴反转 因为图片坐标是向右向下的，但是webgl是向右向上的，所以为需要Y轴反转
+                //当第一个已经使用时候就不要用0号纹理了
+                // if (g_textUnit0) { 
+                //     gl.activeTexture(gl.TEXTURE0)
+                //     g_textUnit0 = true
+                // } else {
+                //     gl.activeTexture(gl.TEXTURE1)
+                //     g_textUnit1 = true
+                // }
+        
+                if(textUnit==0){
+                    gl.activeTexture(gl.TEXTURE0)
+                    g_textUnit0 = true
+                }else{
+                    gl.activeTexture(gl.TEXTURE1)
+                    g_textUnit1 = true
+                }
+                // 绑定纹理对象
+                gl.bindTexture(gl.TEXTURE_2D, texture)
+
+                //配置纹理对象
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+                // gl gl.TEXTURE_MIN_FILTER   纹理填充方法，
+                //  放大缩小  水平  垂直
+                // gl.LINEAR  
+
+                //配置纹理图像
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+                //将 0号纹理传递给着色器的取样器变量
+                gl.uniform1i(u_Smaple,textUnit)
+
+
+                gl.clearColor(1.0, 1.0, 1.0, 1);//设置背景色
+                gl.clear(gl.COLOR_BUFFER_BIT)
+               
+
+                if(g_textUnit0 && g_textUnit1){
+                       gl.drawArrays(gl.TRIANGLE_STRIP, 0, n)  //绘制图像 --指定为矩形
+                }
+
+
+            }
+            const n = initverterxBuffer();
+            inittextTure(gl, n)
+
+
+        }
+
+
+    </script>
+</body>
+
+</html>

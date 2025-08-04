@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+
+<head>
+
+</head>
+
+<body>
+  <div style="font-size: 20px; text-align: center;">vertexAttribPointer使用多个缓冲区对象传递多个数据</div>
+  <canvas id="canvasDom" width="400" height="400"></canvas>
+  <script src="../lib/webgl-utils.js"></script>
+  <script src="../lib/cuon-matrix.js"></script>
+  <!-- 矩阵变换库 -->
+  <script src="../lib/webgl-debug.js"></script>
+  <script src="../lib/cuon-utils.js"></script>
+  <script>
+    //定点着色器   说明了像素-定点的什么样的
+    let vshader_source =
+      'attribute vec4 a_Position;' +
+      'attribute float a_PointSize;' +
+
+      'void main(){' +
+      'gl_Position =a_Position;' + //左乘一个矩阵
+      'gl_PointSize=a_PointSize;' +
+      '}';
+    //positong  表示是呢嘛位置
+    //片元着色器   颜色是什么样
+    let fshader_source =
+      'precision mediump float;' +
+      'uniform vec4 u_FragColor;' +
+      'void main(){' +
+      'gl_FragColor=vec4(1.0,0.0,0.0,1.0);' +
+      '}';
+    window.onload = function () {
+      let canvasDom = document.getElementById("canvasDom");
+      let gl = getWebGLContext(canvasDom);//获得绘图上下文
+      if (!gl) {
+        console.log("不能使用webGl")
+        return;
+      }
+
+      if (!initShaders(gl, vshader_source, fshader_source)) {
+        console.log("不能初始化着色器");
+        return;
+      }
+      let a_Position = gl.getAttribLocation(gl.program, 'a_Position') ///用变量 a_Positon 与顶点着色器  绑定
+      let u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor') //绑定 片元着色
+      let a_PointSize = gl.getAttribLocation(gl.program, "a_PointSize")
+
+
+      if (!a_Position < 0) {
+        console.log("没有能够获取着色器位置a_Positon")
+        return;
+      }
+      const initverterxBuffer = () => {
+        const verticesSizes = new Float32Array(
+          [0.0, 0.5, 10.0,
+            -0.5, -0.5, 20.0,
+            0.5, -0.5, 30.0])
+        var n = 3;
+        const vertesizeBuffer = new gl.createBuffer();
+        //绑定缓冲区并写入   固定写法
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertesizeBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, verticesSizes, gl.STATIC_DRAW)
+       //vertexAttribPointer  第二个参数  是会分到多少变量  使用多个缓冲区对象传递多个数据  第四个参数  相邻像个顶点之间的字节数 （ 第五个参数是  偏移量 （会便宜多远）
+        const fSize = verticesSizes.BYTES_PER_ELEMENT; //字节数
+        gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, fSize * 3, 0);//位置数据  为变量写入数据
+        gl.enableVertexAttribArray(a_Position);//开启分配开关
+
+        gl.vertexAttribPointer(a_PointSize, 1, gl.FLOAT, false, fSize * 3, fSize * 2)
+        gl.enableVertexAttribArray(a_PointSize)
+        return n
+      }
+      gl.clearColor(0.0, 1.0, 0.0, 1);//设置背景色
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      const n = initverterxBuffer();
+      gl.drawArrays(gl.POINT, 0, n)
+    }
+
+    // gl.drawArrays   就像一个绘制开关
+
+  </script>
+</body>
+
+</html>

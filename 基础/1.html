@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<head>
+
+</head>
+<body>
+    <canvas id="canvasDom" width="400" height="400"></canvas>
+    <script src="./lib/webgl-utils.js"></script>
+    <script src="./lib/cuon-matrix.js"></script>
+    <script src="./lib/webgl-debug.js"></script>
+    <script src="./lib/cuon-utils.js"></script>
+    <script>
+          window.onload=function(){
+               let canvasDom=document.getElementById("canvasDom");
+               let gl=getWebGLContext(canvasDom);//获得绘图上下文
+               if(!gl){
+                 console.log("不能使用webGl")
+                 return;
+               }
+               gl.clearColor(0.0,0.0,0.0,1);
+               gl.clear(gl.COLOR_BUFFER_BIT)
+
+          }
+    </script>
+</body>
+</html>

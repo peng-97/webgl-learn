@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+
+<head>
+
+</head>
+
+<body>
+  <div style="font-size: 20px; text-align: center;">绘制一个点</div>
+  <canvas id="canvasDom" width="400" height="400"></canvas>
+  <script src="../lib/webgl-utils.js"></script>
+  <script src="../lib/cuon-matrix.js"></script>
+  <script src="../lib/webgl-debug.js"></script>
+  <script src="../lib/cuon-utils.js"></script>
+  <script>
+    //定点着色器   说明了像素-定点的什么样的
+    let vshader_source =
+      'attribute vec4 a_Position;'+
+      'void main(){' +
+      'gl_Position =a_Position;' +   //表示一个坐标(x,y,z,w)  w表示一个 比例
+      'gl_PointSize=10.0;' +
+      '}';
+       //positong  表示是呢嘛位置
+
+
+    //片元着色器   颜色是什么样
+    let fshader_source =
+      'void main(){' +
+      'gl_FragColor=vec4(1.0,0.0,0.0,1.0);' +
+      '}';
+    window.onload = function () {
+      let canvasDom = document.getElementById("canvasDom");
+      let gl = getWebGLContext(canvasDom);//获得绘图上下文
+      if (!gl) {
+        console.log("不能使用webGl")
+        return;
+      }
+
+      if (!initShaders(gl, vshader_source, fshader_source)) {
+        console.log("不能初始化着色器");
+        return;
+      }
+      let a_Position=gl.getAttribLocation(gl.program,'a_Position') ///用变量 a_Positon 与顶点着色器  绑定
+
+
+      console.log(a_Position)
+      if(!a_Position<0){
+           console.log("没有能够获取着色器位置a_Positon")
+           return;
+      }
+      // gl.vertexAttrib3f(a_Position,0.0,0.0,0.0) //给变量赋值  表是这是一个原点（xyzw)   webgl 原点在中间   向右向上为正   缺省第四个参数默认为1
+      //vertexAttrib3f 赋值函数  js中的变量给glsl中的变量赋值
+      //还有  1f 2f  4f  默认在原点
+      // 矢量赋值
+      // gl.vertexAttrib3fv(a_Position,new Float32Array([0.5,0,0.0]))// fv 表示可以接收一个数组
+       
+     // drawArrays   绘制函数
+      // 第一个参数  mode   表示用于绘制什么类型 LINES TRIANGLES 
+      //   第二个参数    表示用于  从哪个顶点开始绘制
+      // 第三个参数   表示用于 绘制会用到多少顶点
+         gl.clearColor(0.0, 1.0, 0.0, 1);//设置背景色
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      const points=[];
+     let canvasSize = { height: canvasDom.clientHeight, width: canvasDom.clientWidth }
+     canvasDom.addEventListener("click",(event)=>{
+           console.log(event)
+         let positon_x=event.offsetX
+         let positon_y=event.offsetY;
+  
+        console.log(positon_x,positon_y)
+        let webglPsiton={
+             x:parseFloat((positon_x - canvasSize.width / 2) / (canvasSize.width / 2)),
+             y:parseFloat((canvasSize.height / 2 - positon_y) / (canvasSize.height / 2))
+        }
+      points.push(webglPsiton)
+      console.log(points)
+     gl.clearColor(0.0, 1.0, 0.0, 1);//设置背景色
+        gl.clear(gl.COLOR_BUFFER_BIT)
+      //  gl.vertexAttrib2fv(a_Position, new Float32Array(points))// fv 表示可以接收一个数组
+      //  gl.drawArrays(gl.Points, 0, points.length/2);   //一次绘制多个数据？  需要用到buffer
+      for(let i=0;i<points.length;i++){
+         gl.vertexAttrib2fv(a_Position, new Float32Array([points[i].x,points[i].y]))// fv 表示可以接收一个数组
+          gl.drawArrays(gl.Points, 0, 1);
+      }
+     })
+
+    }
+  </script>
+</body>
+
+</html>

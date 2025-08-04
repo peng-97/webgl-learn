@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+
+<head>
+
+</head>
+
+<body>
+  <div style="font-size: 20px; text-align: center;">缓冲变化颜色，内插</div>
+  <canvas id="canvasDom" width="400" height="400"></canvas>
+  <script src="../lib/webgl-utils.js"></script>
+  <script src="../lib/cuon-matrix.js"></script>
+  <!-- 矩阵变换库 -->
+  <script src="../lib/webgl-debug.js"></script>
+  <script src="../lib/cuon-utils.js"></script>
+  <script>
+    //定点着色器   说明了像素-定点的什么样的
+    let vshader_source =
+      'attribute vec4 a_Position;' +
+      'attribute vec4 a_Color;' +
+      'varying vec4 v_Color;'+
+    'void main(){' +
+      'gl_Position =a_Position;' +
+      'gl_PointSize=10.0;' +
+      'v_Color=a_Color;' + //将数据给片元着色器  v_Color 只是一个变量 可以起其他名字，只要片元着色器能够获取到这个变量就行
+      '}';
+    //positong  表示是呢嘛位置
+    //片元着色器   颜色是什么样
+    let fshader_source =
+      'precision mediump float;' +
+      'varying vec4 v_Color;' +
+      'void main(){' +
+      'gl_FragColor=v_Color;' +
+      '}';
+
+    window.onload = function () {
+      let canvasDom = document.getElementById("canvasDom");
+      let gl = getWebGLContext(canvasDom);//获得绘图上下文
+      if (!gl) {
+        console.log("不能使用webGl")
+        return;
+      }
+      debugger
+      if (!initShaders(gl, vshader_source, fshader_source)) {
+        console.log("不能初始化着色器");
+        return;
+      }
+      let a_Position = gl.getAttribLocation(gl.program, 'a_Position') ///用变量 a_Positon 与顶点着色器  绑定
+      let u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor') //绑定 片元着色
+      let a_Color = gl.getAttribLocation(gl.program, "a_Color") //颜色数据
+      if (!a_Position < 0) {
+        console.log("没有能够获取着色器位置a_Positon")
+        return;
+      }
+      const initverterxBuffer = () => {
+        const verticesSizes = new Float32Array(
+          [0.0, 0.5, 1.0, 0.0, 0.0,
+            -0.5, -0.5, 0.0, 1.0, 0.0,
+            0.5, -0.5, 0.0, 0.0, 1.0])
+        var n = 3;///绘制三个点
+        const vertesizeBuffer = new gl.createBuffer();
+        //绑定缓冲区并写入   固定写法
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertesizeBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, verticesSizes, gl.STATIC_DRAW)
+
+        const fSize = verticesSizes.BYTES_PER_ELEMENT; //字节数
+        /**
+         * 
+         * */
+        gl.vertexAttribPointer(a_Position, 2, gl.FLOAT, false, fSize * 5, 0);//位置数据  第三个参数  fSize * 5两个顶点之前的字节数
+        gl.enableVertexAttribArray(a_Position);//开启分配开关
+
+        gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, fSize * 5, fSize * 2) // 第二个位置 第四个参数 fSize * 2  偏移量（认为是从哪开始计算位置）
+        gl.enableVertexAttribArray(a_Color) //开启分配开关
+        return n
+      }
+      gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      const n = initverterxBuffer();
+      gl.drawArrays(gl.TRIANGLES, 0, n)
+    }
+
+    // gl.drawArrays   就像一个绘制开关
+  //注释：片元数目就是面内的像素数目  如果是面的话，就是面内额包含的像素数目（片元着色器就是水像素的的者色）
+  // gp-POstionb就是集合图形装配过程，这些点数据就是在怎么构成最终得到的图形是什么样的，是点还是面线，  三个点能够装配成三角形面（也可以是三践行线），绘制最终得到的救过是根据gl.drawrrays
+  //来决定最终准装配成一个什么图形
+ 
+   //将建转为图形的过程中，转为片元，就叫光栅化的过程，光栅化结束后，得到图形，程序使用片元着色器处理着色器，因此片元着色器也叫像素着色器，片元着色器对每个片元处理一次，计算片元的颜色。
+
+  </script>
+</body>
+
+</html>

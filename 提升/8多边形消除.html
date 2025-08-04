@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+
+<head>
+
+</head>
+
+<body>
+  <div style="font-size: 20px; text-align: center;">消除离得很近的物体的深度控制</div>
+  <canvas id="canvasDom" width="400" height="400"></canvas>
+  <script src="../lib/webgl-utils.js"></script>
+  <script src="../lib/cuon-matrix.js"></script>
+  <!-- 矩阵变换库 -->
+  <script src="../lib/webgl-debug.js"></script>
+  <script src="../lib/cuon-utils.js"></script>
+  <script>
+    //定点着色器   说明了像素-定点的什么样的
+    let vshader_source =
+      'attribute vec4 a_Position;' +
+      'attribute vec4 a_Color;' +
+      'uniform mat4 u_mvpMatrix;' +
+      'varying vec4 v_Color;' +
+      'void main(){' +
+      'gl_Position = u_mvpMatrix*a_Position;' +
+      'gl_PointSize=10.0;' +
+      'v_Color=a_Color;' + //将数据给片元着色器  v_Color 只是一个变量 可以起其他名字，只要片元着色器能够获取到这个变量就行
+      '}';
+    //positong  表示是呢嘛位置
+    //片元着色器   颜色是什么样
+    let fshader_source =
+      'precision mediump float;' +
+      'varying vec4 v_Color;' +
+      'void main(){' +
+      'gl_FragColor=v_Color;' +  //懒得传了直接给数据
+      '}';
+    //片元着色器个根据每个片元（像素的位置来设置颜色） gl_FragCoord的webgl内置函数（获取片在canvas中的坐标）颜色平滑
+
+
+    window.onload = function () {
+      let canvasDom = document.getElementById("canvasDom");
+      let gl = getWebGLContext(canvasDom);//获得绘图上下文
+      if (!gl) {
+        console.log("不能使用webGl")
+        return;
+      }
+      debugger
+      if (!initShaders(gl, vshader_source, fshader_source)) {
+        console.log("不能初始化着色器");
+        return;
+      }
+      let a_Position = gl.getAttribLocation(gl.program, 'a_Position') ///用变量 a_Positon 与顶点着色器  绑定
+      let u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor') //绑定 片元着色
+      let a_Color = gl.getAttribLocation(gl.program, "a_Color") //颜色数据
+      if (!a_Position < 0) {
+        console.log("没有能够获取着色器位置a_Positon")
+        return;
+      }
+      const u_ViewMatirx = gl.getUniformLocation(gl.program, 'u_ViewMatirx')
+      const u_ProjectMatrix = gl.getUniformLocation(gl.program, 'u_projectMatrix')
+      const u_mvpMatrix = gl.getUniformLocation(gl.program, 'u_mvpMatrix')
+      //原本最初的视图
+      const eyes = {
+        x: 0, y: 0, z: 10
+      }
+      const viewMartix = new Matrix4()// 视图矩阵
+      viewMartix.setLookAt(eyes.x, eyes.y, eyes.z, 0, 0, -10, 0, 1, 0)  //设置设界矩阵变换
+
+      const projectMaatrix = new Matrix4()
+      projectMaatrix.setPerspective(30, 1, 1, 100) //垂直视角，宽高比。近位置  远位置
+
+      const modelMatrix = new Matrix4()
+      modelMatrix.setRotate(1, 1, 1, 1)
+
+      const mvpMatrix = new Matrix4()
+      mvpMatrix.set(projectMaatrix).multiply(viewMartix).multiply(modelMatrix)
+      const initverterxBuffer = () => {
+        //九个点  绘制三个三角形
+        const verticesSizes = new Float32Array([
+          // Vertex coordinates and color
+          0.0, 2.5, -5.0, 0.4, 1.0, 0.4, // The green triangle
+          -2.5, -2.5, -5.0, 0.4, 1.0, 0.4,
+          2.5, -2.5, -5.0, 1.0, 0.4, 0.4,
+
+          0.0, 3.0, -5.0, 1.0, 0.4, 0.4, // The yellow triagle
+          -3.0, -3.0, -5.0, 1.0, 1.0, 0.4,
+          3.0, -3.0, -5.0, 1.0, 1.0, 0.4,
+        ]);
+        var n = 9;
+        //视点  观察点   上方向
+
+        const vertesizeBuffer = new gl.createBuffer();
+        //绑定缓冲区并写入 固定写法
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertesizeBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, verticesSizes, gl.STATIC_DRAW)
+
+        gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements)
+
+        const fSize = verticesSizes.BYTES_PER_ELEMENT; //字节数
+        gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, fSize * 6, 0);//位置数据  第三个参数  fSize * 5两个顶点之前的字节数
+        gl.enableVertexAttribArray(a_Position);//开启分配开关
+        gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, fSize * 6, fSize * 3) // 第二个位置 第四个参数 fSize * 2  偏移量（认为是从哪开始计算位置）
+
+        gl.enableVertexAttribArray(a_Color) //开启分配开关
+        return n
+      }
+      const n = initverterxBuffer();
+      gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+      gl.enable(gl.POLYGON_OFFSET_FILL)  //多边形监测
+      gl.polygonOffset(1.0,0.1)
+   
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+      gl.drawArrays(gl.TRIANGLES, 0, n)
+
+
+      window.addEventListener("keydown", event => {
+        let keyCode = event.keyCode
+        if (keyCode === 37) {
+          //左键
+          eyes.x -= 0.01
+        } else if (keyCode == 39) {
+          //右键
+          eyes.x += 0.01
+        }
+        viewMartix.setLookAt(eyes.x, eyes.y, eyes.z, 0, 0, 0, 0, 1, 0)  //设置设界矩阵变换
+        mvpMatrix.set(projectMaatrix).multiply(viewMartix).multiply(modelMatrix)
+        gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements)
+        gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.drawArrays(gl.TRIANGLES, 0, n)
+      })
+    }
+
+  </script>
+</body>
+
+</html>

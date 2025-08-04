@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<head>
+
+</head>
+
+<body>
+    <div style="font-size: 20px; text-align: center;"></div>
+    <canvas id="canvasDom" width="600" height="600"></canvas>
+    <script src="../lib/webgl-utils.js"></script>
+    <script src="../lib/cuon-matrix.js"></script>
+    <!-- 矩阵变换库 -->
+    <script src="../lib/webgl-debug.js"></script>
+    <script src="../lib/cuon-utils.js"></script>
+    <script>
+        //定点着色器   说明了像素-定点的什么样的
+        let vshader_source =
+            'attribute vec4 a_Position;' +
+            'attribute vec4 a_Color;' +
+            'uniform mat4 u_mvpMatrix;' +
+            'varying vec4 v_Color;' +
+            'attribute vec2 a_TextCoord;' +  //纹理坐标是二维的
+            'varying vec2 v_TextCoord;' +
+            'void main(){' +
+            'gl_Position = u_mvpMatrix*a_Position;' +
+            'gl_PointSize=10.0;' +
+            'v_TextCoord=a_TextCoord;' +
+            'v_Color=a_Color;' + //将数据给片元着色器  v_Color 只是一个变量 可以起其他名字，只要片元着色器能够获取到这个变量就行
+            '}';
+        //positong  表示是呢嘛位置
+        //片元着色器   颜色是什么样
+        // let fshader_source =
+        //     'precision mediump float;' +
+        //     'varying vec4 v_Color;' +
+        //     'void main(){' +
+        //     'gl_FragColor=v_Color;' +  //懒得传了直接给数据
+        //     '}';
+
+        let fshader_source =
+            'precision mediump float;' +
+            'varying vec4 v_Color;' +
+            'uniform sampler2D u_Sample;' + //aspmler2D 是一个取样器重图片中获取颜色
+            'varying vec2 v_TextCoord;' +
+            'void main(){' +
+            'gl_FragColor=texture2D(u_Sample,v_TextCoord);' +//将纹理坐标转为颜色坐标
+            '}';
+        window.onload = function () {
+            let canvasDom = document.getElementById("canvasDom");
+            let gl = getWebGLContext(canvasDom);//获得绘图上下文
+            if (!gl) {
+                console.log("不能使用webGl")
+                return;
+            }
+            if (!initShaders(gl, vshader_source, fshader_source)) {
+                console.log("不能初始化着色器");
+                return;
+            }
+            let a_Position = gl.getAttribLocation(gl.program, 'a_Position') ///用变量 a_Positon 与顶点着色器  绑定
+            let u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor') //绑定 片元着色
+            let a_Color = gl.getAttribLocation(gl.program, "a_Color") //颜色数据
+            let a_TextCoord = gl.getAttribLocation(gl.program, 'a_TextCoord')
+            if (!a_Position < 0) {
+                console.log("没有能够获取着色器位置a_Positon")
+                return;
+            }
+            const u_ViewMatirx = gl.getUniformLocation(gl.program, 'u_ViewMatirx')
+            const u_ProjectMatrix = gl.getUniformLocation(gl.program, 'u_projectMatrix')
+            const u_mvpMatrix = gl.getUniformLocation(gl.program, 'u_mvpMatrix')
+            //原本最初的视图
+            const eyes = {
+                x: 2, y: 0, z: 8
+            }
+            const viewMartix = new Matrix4()// 视图矩阵
+            viewMartix.setLookAt(eyes.x, eyes.y, eyes.z, 0, 0, 0, 0, 1, 0)  //设置设界矩阵变换   //
+
+            const projectMaatrix = new Matrix4()
+            projectMaatrix.setPerspective(90, 1, 1, 100) //垂直视角，宽高比。近位置  远位置
+
+            const modelMatrix = new Matrix4()
+            // modelMatrix.setRotate(1, 1, 1, 1)
+
+            const mvpMatrix = new Matrix4()
+            mvpMatrix.set(projectMaatrix).multiply(viewMartix).multiply(modelMatrix)
+
+            /**
+        * 初始化纹理
+        * */
+            const inittextTure = (gl, n) => {
+                let texture = gl.createTexture();//创建纹理对象
+                let u_Sample = gl.getUniformLocation(gl.program, 'u_Sample')  //获取位置
+                let image = new Image()
+                image.onload = () => {
+                    loadtexture(gl, n, texture, u_Sample, image)
+                }
+                image.src = '../assets/sky.jpg';
+                return true
+            }
+            /**
+             * 加载载纹理对象
+            */
+            const loadtexture = (gl, u, texture, u_Smaple, image) => {
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);//将纹理对象Y轴反转 因为图片坐标是向右向下的，但是webgl是向右向上的，所以为需要Y轴反转
+                //开启0号纹理单元
+                gl.activeTexture(gl.TEXTURE0)
+                // 绑定纹理对象
+                gl.bindTexture(gl.TEXTURE_2D, texture)
+
+                //配置纹理对象
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+                // gl gl.TEXTURE_MIN_FILTER   纹理填充方法，
+                //  放大缩小  水平  垂直
+                // gl.LINEAR  
+
+                //配置纹理图像
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+                //将 0号纹理传递给着色器的取样器变量
+                gl.uniform1i(u_Smaple, 0)
+
+
+                gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+                gl.enable(gl.DEPTH_TEST)  //深度检测  让其不会遮盖
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+                gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0)
+            }
+
+
+
+
+            // mvpMatrix.lookAt(eyes.x, eyes.y, eyes.z, 0, 0, -10, 0, 1, 0)  //直接修改当前视角
+            const initverterxBuffer = () => {
+
+
+                var vertices = new Float32Array([   // Vertex coordinates
+                    1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0,    // v0-v1-v2-v3 front
+                    1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0,    // v0-v3-v4-v5 right
+                    1.0, 1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0,    // v0-v5-v6-v1 up
+                    -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0,    // v1-v6-v7-v2 left
+                    -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0,    // v7-v4-v3-v2 down
+                    1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0     // v4-v7-v6-v5 back
+                ]);
+
+                var texCoords = new Float32Array([   // Texture coordinates
+                    1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,    // v0-v1-v2-v3 front
+                    0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0,    // v0-v3-v4-v5 right
+                    1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0,    // v0-v5-v6-v1 up
+                    1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,    // v1-v6-v7-v2 left
+                    0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0,    // v7-v4-v3-v2 down
+                    0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0     // v4-v7-v6-v5 back
+                ]);
+
+                // Indices of the vertices
+                var indices = new Uint8Array([
+                    0, 1, 2, 0, 2, 3,    // front
+                    4, 5, 6, 4, 6, 7,    // right
+                    8, 9, 10, 8, 10, 11,    // up
+                    12, 13, 14, 12, 14, 15,    // left
+                    16, 17, 18, 16, 18, 19,    // down
+                    20, 21, 22, 20, 22, 23     // back
+                ]);
+
+
+
+
+                var n = 9;
+                //视点  观察点   上方向
+                gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements)
+
+
+
+                //绑定缓冲区并写入 固定写法 
+
+                //element  缓冲写法   固定写法 与 buffer不一致的地方   索引数局的缓冲区对象
+                const indexBuffer = new gl.createBuffer() //索引缓冲
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
+
+                const vertesizeBuffer = new gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertesizeBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
+
+                gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, 0, 0);//间隔是0 偏移也是0
+                gl.enableVertexAttribArray(a_Position);//开启分配开关
+                const textCoordBuffer = new gl.createBuffer()
+                //增加一个颜色缓冲区数据
+                gl.bindBuffer(gl.ARRAY_BUFFER, textCoordBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW)
+                gl.vertexAttribPointer(a_TextCoord, 2, gl.FLOAT, false, 0, 0)//  间隔是0 偏移也是0
+                gl.enableVertexAttribArray(a_TextCoord) //开启分配开关
+                return indices.length
+            }
+            const n = initverterxBuffer();
+
+            // gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0)
+
+            inittextTure(gl, n)   //进去
+
+
+            //书标配上下左右控制
+            window.addEventListener("keydown", event => {
+                let keyCode = event.keyCode
+                if (keyCode === 37) {
+                    //左键
+                    viewMartix.rotate(1.0, 0.0, 1.0, 0.0)
+                } else if (keyCode == 39) {  //右键
+                    viewMartix.rotate(-1.0, 0.0, 1.0, 0.0)
+                    //   viewMartix.rotate(0.0, 1.0, 0.0, 1.0)
+                } else if (keyCode == 40) {     //下
+
+                    viewMartix.rotate(-1.0, 1.0, 0.0, 0.0)
+                } else if (keyCode == 38) { //上
+                    viewMartix.rotate(1.0, 1.0, 0.0, 0.0)
+                }
+                // viewMartix.setLookAt(eyes.x, eyes.y, eyes.z, 0, 0, 0, 0, 1, 0)  //设置设界矩阵变换\
+
+                mvpMatrix.set(projectMaatrix).multiply(viewMartix).multiply(modelMatrix)
+                gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements)
+                gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+                gl.enable(gl.DEPTH_TEST)  //深度检测  让其不会遮盖
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+                gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0)
+            })
+            let isDrag = false
+            let move={
+                  x:0,
+                  y:0,
+                  movex:0,
+                  movey:0
+            }
+            canvasDom.addEventListener("mousemove", (event) => {
+                    if(isDrag){
+                        let movex=(event.clientX-move.x)
+                        let movey=(event.clientY-move.y)
+
+                        viewMartix.rotate(movey, 1.0, 0.0, 0.0)  //x方向
+                         viewMartix.rotate(movex , 0.0, 1.0, 0.0)  //y方向
+                     
+                        console.log(movex,movey)
+                        mvpMatrix.set(projectMaatrix).multiply(viewMartix).multiply(modelMatrix)
+                        gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements)
+                        gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+                        gl.enable(gl.DEPTH_TEST)  //深度检测  让其不会遮盖
+                        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+                        gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0)
+                         move.x = event.clientX
+                        move.y = event.clientY
+
+                    }
+            })
+            canvasDom.addEventListener("mousedown", (event) => {
+                isDrag = true  //当前鼠标设置的位置
+                move.x=event.clientX
+                move.y=event.clientY
+
+            })
+            canvasDom.addEventListener("mouseup", () => {
+                isDrag = false
+                move={
+                     x:0,
+                     y:0
+                }
+            })
+        }
+
+    </script>
+</body>
+
+</html>

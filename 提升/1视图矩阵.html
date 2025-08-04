@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+
+<head>
+
+</head>
+
+<body>
+  <div style="font-size: 20px; text-align: center;">视野</div>
+  <canvas id="canvasDom" width="400" height="400"></canvas>
+  <script src="../lib/webgl-utils.js"></script>
+  <script src="../lib/cuon-matrix.js"></script>
+  <!-- 矩阵变换库 -->
+  <script src="../lib/webgl-debug.js"></script>
+  <script src="../lib/cuon-utils.js"></script>
+  <script>
+    //定点着色器   说明了像素-定点的什么样的
+    let vshader_source =
+      'attribute vec4 a_Position;' +
+      'attribute vec4 a_Color;' +
+      'uniform mat4 u_ViewMatirx;'+
+      'varying vec4 v_Color;'+
+    'void main(){' +
+      'gl_Position = u_ViewMatirx*a_Position;' +
+      'gl_PointSize=10.0;' +
+      'v_Color=a_Color;' + //将数据给片元着色器  v_Color 只是一个变量 可以起其他名字，只要片元着色器能够获取到这个变量就行
+      '}';
+    //positong  表示是呢嘛位置
+    //片元着色器   颜色是什么样
+    let fshader_source =
+      'precision mediump float;' +
+      'varying vec4 v_Color;' +
+      'void main(){' +
+      'gl_FragColor=v_Color;' +  //懒得传了直接给数据
+      '}';
+       //片元着色器个根据每个片元（像素的位置来设置颜色） gl_FragCoord的webgl内置函数（获取片在canvas中的坐标）颜色平滑
+
+
+    window.onload = function () {
+      let canvasDom = document.getElementById("canvasDom");
+      let gl = getWebGLContext(canvasDom);//获得绘图上下文
+      if (!gl) {
+        console.log("不能使用webGl")
+        return;
+      }
+      debugger
+      if (!initShaders(gl, vshader_source, fshader_source)) {
+        console.log("不能初始化着色器");
+        return;
+      }
+      let a_Position = gl.getAttribLocation(gl.program, 'a_Position') ///用变量 a_Positon 与顶点着色器  绑定
+      let u_FragColor = gl.getUniformLocation(gl.program, 'u_FragColor') //绑定 片元着色
+      let a_Color = gl.getAttribLocation(gl.program, "a_Color") //颜色数据
+      if (!a_Position < 0) {
+        console.log("没有能够获取着色器位置a_Positon")
+        return;
+      }
+      const  u_ViewMatirx=gl.getUniformLocation(gl.program,'u_ViewMatirx')
+      const u_ModelMatrix=gl.getUniformLocation(gl.program,'u_ModelMatrix')
+      const initverterxBuffer = () => {
+
+
+        //九个点  绘制三个三角形
+        const verticesSizes = new Float32Array([
+              // Vertex coordinates and color(RGBA)
+              0.0, 0.5, -0.4, 0.4, 1.0, 0.4, // The back green one
+              -0.5, -0.5, -0.4, 0.4, 1.0, 0.4,
+              0.5, -0.5, -0.4, 1.0, 0.4, 0.4,
+
+              0.5, 0.4, -0.2, 1.0, 0.4, 0.4, // The middle yellow one
+              -0.5, 0.4, -0.2, 1.0, 1.0, 0.4,
+              0.0, -0.6, -0.2, 1.0, 1.0, 0.4,
+
+              0.0, 0.5, 0.0, 0.4, 0.4, 1.0,  // The front blue one 
+              -0.5, -0.5, 0.0, 0.4, 0.4, 1.0,
+              0.5, -0.5, 0.0, 1.0, 0.4, 0.4,
+          ]);
+          var n = 9;
+
+
+
+        const viewMartix=new Matrix4()// 视图矩阵
+        viewMartix.setLookAt(0.20,0.25,0.25,0,0,0,-1,-1,1)  //设置设界矩阵变换
+
+
+       //视点  观察点   上方向
+        
+        const vertesizeBuffer = new gl.createBuffer();
+        //绑定缓冲区并写入 固定写法
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertesizeBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, verticesSizes, gl.STATIC_DRAW)
+    
+        gl.uniformMatrix4fv(u_ViewMatirx,false, viewMartix.elements)
+        const fSize = verticesSizes.BYTES_PER_ELEMENT; //字节数
+        gl.vertexAttribPointer(a_Position, 3, gl.FLOAT, false, fSize * 6, 0);//位置数据  第三个参数  fSize * 5两个顶点之前的字节数
+        gl.enableVertexAttribArray(a_Position);//开启分配开关
+        gl.vertexAttribPointer(a_Color, 3, gl.FLOAT, false, fSize * 6, fSize * 3) // 第二个位置 第四个参数 fSize * 2  偏移量（认为是从哪开始计算位置）
+        gl.enableVertexAttribArray(a_Color) //开启分配开关
+        gl.en
+        return n
+      }
+      gl.clearColor(0.0, 0.0, 0.0, 1);//设置背景色
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      const n = initverterxBuffer();
+      gl.drawArrays(gl.TRIANGLES, 0, n)
+    }
+
+  </script>
+</body>
+
+</html>
