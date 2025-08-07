@@ -5,8 +5,8 @@
 </head>
 
 <body>
-    <div style="font-size: 20px; text-align: center;"></div>
-    <canvas id="canvasDom" width="600" height="600">渲染到纹理</canvas>
+    <div style="font-size: 20px; text-align: center;">渲染到纹理</div>
+    <canvas id="canvasDom" width="500" height="500"></canvas>
     <script src="../lib/webgl-utils.js"></script>
     <script src="../lib/cuon-matrix.js"></script>
     <!-- 矩阵变换库 -->
@@ -233,6 +233,7 @@
                 gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer)
                 gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, offsetScreen_Width, offsetScreent_hight)
                 // 5 将帧缓冲区的颜色关联对象指定为一个纹理
+                gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer)
                 gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
                 //6 将帧缓冲区的深度关联对象指定为一个渲染缓冲区对象 也就是将渲染对象关联到帧缓冲区对象
                 gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer)
@@ -277,6 +278,7 @@
                 mvpMatrix.set(viewProjMatrix);
                 mvpMatrix.multiply(modelMatrix);
                 gl.uniformMatrix4fv(u_mvpMatrix, false, mvpMatrix.elements);
+                drawTexturedObject(o, texture);
             }
 
             //绘制真实物体，这里是一个矩形平面
@@ -298,6 +300,8 @@
                 gl.clearColor(0.2, 0.2, 0.4, 1.0); // Set clear color (the color is slightly changed)
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);  // Clear FBO
                 drawTexttureCube(cube, angle, texture, viewProjMatrixFBO)
+
+                // drawTexturedPlane(cube,angle,texture,viewProjMatix)
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null)  //切换目标位颜色缓冲区
                 gl.viewport(0, 0, canvas.width, canvas.height) //绘制真实的物体
                 gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -334,10 +338,10 @@
             var cube = initVertexBuffersForCube();
             var plane = initVertexBuffersForPlane();
             const fbo = initFramebufferObject()
-            const texture = inittextTure()
+            const texture1 = inittextTure()
             const tick = () => {
                 currentAngle = animate(currentAngle);  // Update current rotation angle
-                draw(canvasDom, fbo, plane, cube, currentAngle, texture, viewProjMatrix, viewProjMatrixFBO);
+                draw(canvasDom, fbo, plane, cube, currentAngle, texture1, viewProjMatrix, viewProjMatrixFBO);
                 requestAnimationFrame(tick, canvasDom);
             };
             tick();
