@@ -6,9 +6,8 @@ varying 从顶点着色器想片元着色器传输数据，变量名要一样---
 
 pro中  3文件有关于顶点着色器和片元着色器的描述和说明、
 4 纹理
-
 vertexAttribPointer函数  p135  开始于b7
-六个参数 location  、
+六个参数 location 位置参数
 //方法说明
 locationg  位置 、
 size  每个位置需要的顶点（1-4)(这是2 ，原本需要的 z,w,会默认补全) 、
